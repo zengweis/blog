@@ -8,6 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # 确保此处名称与你网页端创建的 Environment 一致
     environment: SERVER_HOST 
 
     steps:
@@ -18,12 +19,21 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
-            # 1. 强制同步文章到指定目录
+            # 1. 解决 HTTP2 协议解析报错
+            git config --global http.version HTTP/1.1
+
+            # 2. 如果目录不存在则克隆，存在则跳过
+            if [ ! -d "/www/wwwroot/blog/source/_posts/.git" ]; then
+              echo "Directory not found, cloning..."
+              git clone https://github.com/zengweis/blog.git /www/wwwroot/blog/source/_posts
+            fi
+
+            # 3. 核心修正：使用 fetch + reset 强制覆盖本地，解决分支分叉(divergent)报错
             cd /www/wwwroot/blog/source/_posts
             git fetch --all
             git reset --hard origin/main
 
-            # 2. 返回根目录，用 npm 构建发布
+            # 4. 回到根目录构建发布
             cd /www/wwwroot/blog
             npm install
             npx hexo generate
